@@ -1,0 +1,60 @@
+<%- include('../partials/head') %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar-employee') %>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">💡 Suggest a Feature</h1>
+      <p class="page-desc">Have an idea to improve G.GUI? Submit it here.</p>
+    </div>
+
+    <% if (flash) { %>
+      <div class="alert alert-success"><%= flash %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <div class="card">
+      <form action="/employee/suggest-feature" method="POST" class="form" autocomplete="off">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="title">Feature Title <span class="required">*</span></label>
+            <input type="text" id="title" name="title" class="form-input" placeholder="e.g. Dark mode toggle" required maxlength="150" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="category">Category <span class="required">*</span></label>
+            <select id="category" name="category" class="form-select" required>
+              <option value="" disabled selected>Select category</option>
+              <option value="UI">UI</option>
+              <option value="Performance">Performance</option>
+              <option value="Backend">Backend</option>
+              <option value="Content">Content</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="description">Description <span class="required">*</span></label>
+          <textarea id="description" name="description" class="form-textarea" placeholder="Describe the feature in detail. How should it work?" required maxlength="2000" rows="5"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="rationale">Why Is It Useful? <span class="required">*</span></label>
+          <textarea id="rationale" name="rationale" class="form-textarea" placeholder="What problem does this solve? Who benefits from it?" required maxlength="1000" rows="3"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Submit Feature</button>
+        </div>
+
+      </form>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

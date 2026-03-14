@@ -1,0 +1,59 @@
+<%- include('../partials/head') %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar-owner') %>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">💡 Feature Suggestions</h1>
+      <p class="page-desc"><%= items.length %> suggestion<%= items.length !== 1 ? 's' : '' %> found.</p>
+    </div>
+
+    <div class="filter-bar card">
+      <form method="GET" action="/owner/features" class="filter-form">
+        <input type="text" name="q" class="form-input filter-input" placeholder="Search by title, description, submitter..." value="<%= q %>" />
+        <select name="category" class="form-select filter-select">
+          <option value="">All Categories</option>
+          <% validCategories.forEach(function(cat) { %>
+            <option value="<%= cat %>" <%= category === cat ? 'selected' : '' %>><%= cat %></option>
+          <% }) %>
+        </select>
+        <button type="submit" class="btn btn-secondary">Filter</button>
+        <a href="/owner/features" class="btn btn-ghost">Clear</a>
+      </form>
+    </div>
+
+    <% if (items.length === 0) { %>
+      <div class="empty-state card">
+        <div class="empty-icon">💡</div>
+        <p>No feature suggestions found.</p>
+      </div>
+    <% } else { %>
+      <div class="cards-list">
+        <% items.slice().reverse().forEach(function(item) { %>
+          <div class="item-card card">
+            <div class="item-card-header">
+              <div>
+                <h3 class="item-title"><%- item.title %></h3>
+                <div class="item-meta">
+                  <span class="badge badge-category"><%= item.category %></span>
+                  <span class="meta-text">by <strong><%= item.submitter %></strong></span>
+                  <span class="meta-text"><%= new Date(item.createdAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) %></span>
+                </div>
+              </div>
+            </div>
+            <div class="item-body">
+              <p class="item-section-label">Description</p>
+              <p class="item-text"><%- item.description %></p>
+              <p class="item-section-label" style="margin-top:0.75rem;">Why It's Useful</p>
+              <p class="item-text"><%- item.rationale %></p>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </main>
+</div>
+
+</body>
+</html>

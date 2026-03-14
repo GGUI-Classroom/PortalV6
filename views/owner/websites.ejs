@@ -1,0 +1,70 @@
+<%- include('../partials/head') %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar-owner') %>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🌐 Website Suggestions</h1>
+      <p class="page-desc"><%= items.length %> suggestion<%= items.length !== 1 ? 's' : '' %> found.</p>
+    </div>
+
+    <div class="filter-bar card">
+      <form method="GET" action="/owner/websites" class="filter-form">
+        <input type="text" name="q" class="form-input filter-input" placeholder="Search by name, description, submitter..." value="<%= q %>" />
+        <select name="priority" class="form-select filter-select">
+          <option value="">All Priorities</option>
+          <option value="High"   <%= priority === 'High'   ? 'selected' : '' %>>High</option>
+          <option value="Medium" <%= priority === 'Medium' ? 'selected' : '' %>>Medium</option>
+          <option value="Low"    <%= priority === 'Low'    ? 'selected' : '' %>>Low</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">Filter</button>
+        <a href="/owner/websites" class="btn btn-ghost">Clear</a>
+      </form>
+    </div>
+
+    <% if (items.length === 0) { %>
+      <div class="empty-state card">
+        <div class="empty-icon">🌐</div>
+        <p>No website suggestions found.</p>
+      </div>
+    <% } else { %>
+      <div class="table-wrapper card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>URL</th>
+              <th>Priority</th>
+              <th>Submitter</th>
+              <th>Description</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.slice().reverse().forEach(function(item) { %>
+              <tr>
+                <td class="td-name"><strong><%- item.name %></strong></td>
+                <td><a href="<%- item.url %>" target="_blank" rel="noopener" class="link-external">Visit ↗</a></td>
+                <td>
+                  <span class="badge badge-<%= item.priority.toLowerCase() %>"><%= item.priority %></span>
+                </td>
+                <td class="td-meta"><%= item.submitter %></td>
+                <td class="td-desc"><%- item.description %></td>
+                <td class="td-date"><%= new Date(item.createdAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) %></td>
+              </tr>
+              <% if (item.notes) { %>
+              <tr class="tr-notes">
+                <td colspan="6"><span class="notes-label">Notes:</span> <%- item.notes %></td>
+              </tr>
+              <% } %>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,63 @@
+<%- include('../partials/head') %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar-employee') %>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🌐 Suggest a Website</h1>
+      <p class="page-desc">Submit a game or website to be added to G.GUI.</p>
+    </div>
+
+    <% if (flash) { %>
+      <div class="alert alert-success"><%= flash %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <div class="card">
+      <form action="/employee/suggest-website" method="POST" class="form" autocomplete="off">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="name">Game / Website Name <span class="required">*</span></label>
+            <input type="text" id="name" name="name" class="form-input" placeholder="e.g. Slope" required maxlength="100" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="priority">Priority <span class="required">*</span></label>
+            <select id="priority" name="priority" class="form-select" required>
+              <option value="" disabled selected>Select priority</option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="url">URL <span class="required">*</span></label>
+          <input type="url" id="url" name="url" class="form-input" placeholder="https://example.com/game" required maxlength="300" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="description">Brief Description <span class="required">*</span></label>
+          <textarea id="description" name="description" class="form-textarea" placeholder="What is this game/website about? Why should it be added?" required maxlength="1000" rows="4"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="notes">Additional Notes <span class="optional">(optional)</span></label>
+          <textarea id="notes" name="notes" class="form-textarea" placeholder="Any extra context, links, or notes..." maxlength="500" rows="3"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Submit Suggestion</button>
+        </div>
+
+      </form>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

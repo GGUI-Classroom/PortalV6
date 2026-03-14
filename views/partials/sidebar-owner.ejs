@@ -1,0 +1,55 @@
+<aside class="sidebar sidebar-owner">
+  <div class="sidebar-brand">
+    <span class="brand-icon">⌨</span>
+    <div>
+      <div class="brand-name">G.GUI</div>
+      <div class="brand-sub">Admin Portal <span class="admin-badge">OWNER</span></div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">OVERVIEW</div>
+    <a href="/owner/dashboard" class="nav-link <%= activePage === 'dashboard' ? 'active' : '' %>">
+      <span class="nav-icon">📊</span> Dashboard
+    </a>
+
+    <div class="nav-section-label">SUBMISSIONS</div>
+    <a href="/owner/websites" class="nav-link <%= activePage === 'websites' ? 'active' : '' %>">
+      <span class="nav-icon">🌐</span> Website Suggestions
+    </a>
+    <a href="/owner/features" class="nav-link <%= activePage === 'features' ? 'active' : '' %>">
+      <span class="nav-icon">💡</span> Feature Suggestions
+    </a>
+    <a href="/owner/snippets" class="nav-link <%= activePage === 'snippets' ? 'active' : '' %>">
+      <span class="nav-icon">＜/＞</span> Review Snippets
+    </a>
+    <a href="/owner/combined" class="nav-link <%= activePage === 'combined' ? 'active' : '' %>">
+      <span class="nav-icon">🔀</span> Combined View
+    </a>
+
+    <div class="nav-section-label">TEAM</div>
+    <a href="/voice" class="nav-link <%= activePage === 'voice' ? 'active' : '' %>">
+      <span class="nav-icon">🎙</span> Voice Call
+    </a>
+    <a href="/chat" class="nav-link <%= activePage === 'chat' ? 'active' : '' %>">
+      <span class="nav-icon">💬</span> Live Chat
+    </a>
+    <a href="/events" class="nav-link <%= activePage === 'events' ? 'active' : '' %>">
+      <span class="nav-icon">📅</span> Events
+    </a>
+    <a href="/events/create" class="nav-link <%= activePage === 'event-create' ? 'active' : '' %>">
+      <span class="nav-icon">➕</span> Schedule Event
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <span class="user-avatar">👑</span>
+      <div>
+        <div class="user-name"><%= user.username %></div>
+        <div class="user-role role-owner">Owner</div>
+      </div>
+    </div>
+    <a href="/logout" class="btn-logout">Logout</a>
+  </div>
+</aside>

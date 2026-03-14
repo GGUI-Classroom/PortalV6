@@ -1,0 +1,352 @@
+<%- include('partials/head') %>
+<div class="app-layout">
+  <% if (user.role === 'owner') { %>
+    <%- include('partials/sidebar-owner') %>
+  <% } else { %>
+    <%- include('partials/sidebar-employee') %>
+  <% } %>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🎙 Voice Calls</h1>
+      <p class="page-desc">Start a one-on-one voice call with anyone who's online.</p>
+    </div>
+
+    <!-- Online users / call targets -->
+    <div class="card voice-lobby">
+      <h2 class="card-title">Online Now</h2>
+      <div id="voiceUserList" class="voice-user-list">
+        <p class="text-muted-sm">Connecting...</p>
+      </div>
+    </div>
+
+    <!-- Incoming call modal -->
+    <div id="incomingModal" class="voice-modal" style="display:none">
+      <div class="voice-modal-box">
+        <div class="voice-modal-icon">📞</div>
+        <h3 class="voice-modal-title">Incoming Call</h3>
+        <p class="voice-modal-from" id="incomingFrom">Someone is calling...</p>
+        <div class="voice-modal-actions">
+          <button class="btn btn-accept-call" id="acceptCallBtn">✅ Accept</button>
+          <button class="btn btn-decline-call" id="declineCallBtn">❌ Decline</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active call panel -->
+    <div id="activeCallPanel" class="card voice-active-panel" style="display:none">
+      <div class="voice-call-status">
+        <div class="voice-call-avatar" id="callPeerAvatar">👤</div>
+        <div>
+          <div class="voice-call-peer" id="callPeerName">—</div>
+          <div class="voice-call-timer" id="callTimer">00:00</div>
+        </div>
+        <div class="voice-call-indicator">
+          <span class="voice-dot"></span>
+          <span class="voice-call-label">LIVE</span>
+        </div>
+      </div>
+
+      <div class="voice-call-bars" id="voiceBars">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="voice-controls">
+        <button class="btn-voice-ctrl" id="muteBtn" title="Mute">
+          <span id="muteIcon">🎙</span>
+          <span id="muteLabel">Mute</span>
+        </button>
+        <button class="btn-voice-hangup" id="hangupBtn">
+          📵 End Call
+        </button>
+      </div>
+    </div>
+
+    <!-- Waiting for callee to accept -->
+    <div id="callingPanel" class="card voice-calling-panel" style="display:none">
+      <div class="voice-calling-anim">
+        <div class="calling-ring ring1"></div>
+        <div class="calling-ring ring2"></div>
+        <div class="calling-ring ring3"></div>
+        <span class="calling-icon">📞</span>
+      </div>
+      <p class="voice-calling-text">Calling <strong id="callingTarget">—</strong>...</p>
+      <button class="btn btn-decline-call" id="cancelCallBtn">Cancel</button>
+    </div>
+
+    <!-- Hidden audio element -->
+    <audio id="remoteAudio" autoplay playsinline></audio>
+  </main>
+</div>
+
+<script>
+// Tell head.ejs global overlay to stand down — this page handles calls directly
+window._voicePageActive = true;
+
+const ME      = '<%= user.username %>';
+const MY_ROLE = '<%= user.role %>';
+// Reuse the global socket created in head.ejs
+const socket  = window._portalSocket;
+
+// ── State ─────────────────────────────────────────────────
+let currentCallId     = null;
+let peerConnection    = null;
+let localStream       = null;
+let isMuted           = false;
+let callTimerInterval = null;
+let callSeconds       = 0;
+
+// Check if we were redirected here from the global overlay after accepting
+const _urlParams    = new URLSearchParams(window.location.search);
+const _autoCallId   = _urlParams.get('callId');
+const _autoAccept   = _urlParams.get('autoAccept') === '1';
+let pendingCallId   = _autoAccept ? _autoCallId : null;
+
+// ICE servers — Google's free STUN + optional TURN from env
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+];
+
+// ── DOM refs ──────────────────────────────────────────────
+const voiceUserList   = document.getElementById('voiceUserList');
+const incomingModal   = document.getElementById('incomingModal');
+const incomingFrom    = document.getElementById('incomingFrom');
+const acceptCallBtn   = document.getElementById('acceptCallBtn');
+const declineCallBtn  = document.getElementById('declineCallBtn');
+const activeCallPanel = document.getElementById('activeCallPanel');
+const callingPanel    = document.getElementById('callingPanel');
+const callPeerName    = document.getElementById('callPeerName');
+const callPeerAvatar  = document.getElementById('callPeerAvatar');
+const callTimer       = document.getElementById('callTimer');
+const callingTarget   = document.getElementById('callingTarget');
+const muteBtn         = document.getElementById('muteBtn');
+const muteIcon        = document.getElementById('muteIcon');
+const muteLabel       = document.getElementById('muteLabel');
+const hangupBtn       = document.getElementById('hangupBtn');
+const cancelCallBtn   = document.getElementById('cancelCallBtn');
+const remoteAudio     = document.getElementById('remoteAudio');
+
+// ── Presence ──────────────────────────────────────────────
+socket.on('presence:update', (users) => {
+  const others = users.filter(u => u.username !== ME);
+  voiceUserList.innerHTML = '';
+
+  if (others.length === 0) {
+    voiceUserList.innerHTML = '<p class="text-muted-sm">No one else is online right now.</p>';
+    return;
+  }
+
+  others.forEach(u => {
+    const div = document.createElement('div');
+    div.className = 'voice-user-row';
+    const roleClass = u.role === 'owner' ? 'role-owner' : 'role-employee';
+    const roleBadge = u.role === 'owner' ? '<span class="owner-badge">OWNER</span>' : '';
+    div.innerHTML = `
+      <div class="voice-user-info">
+        <span class="presence-dot"></span>
+        <span class="voice-username ${roleClass}">${escapeHtml(u.username)}</span>
+        ${roleBadge}
+      </div>
+      <button class="btn-call-user" data-user="${escapeHtml(u.username)}" onclick="startCall('${escapeHtml(u.username)}')">
+        📞 Call
+      </button>`;
+    voiceUserList.appendChild(div);
+  });
+});
+
+// ── Initiate call ─────────────────────────────────────────
+function startCall(targetUsername) {
+  socket.emit('voice:call-request', { to: targetUsername });
+}
+
+socket.on('voice:call-pending', ({ callId, to }) => {
+  currentCallId = callId;
+  callingTarget.textContent = to;
+  callingPanel.style.display = 'block';
+});
+
+socket.on('voice:error', ({ message }) => {
+  alert('⚠ ' + message);
+  resetCallUI();
+});
+
+// Cancel outgoing call
+cancelCallBtn.addEventListener('click', () => {
+  if (currentCallId) socket.emit('voice:hangup', { callId: currentCallId });
+  resetCallUI();
+});
+
+// ── Incoming call ─────────────────────────────────────────
+socket.on('voice:incoming-call', ({ callId, from, fromRole }) => {
+  pendingCallId = callId;
+  incomingFrom.textContent = from + (fromRole === 'owner' ? ' 👑' : '');
+  incomingModal.style.display = 'flex';
+});
+
+acceptCallBtn.addEventListener('click', () => {
+  if (!pendingCallId) return;
+  incomingModal.style.display = 'none';
+  socket.emit('voice:accept', { callId: pendingCallId });
+  currentCallId = pendingCallId;
+  pendingCallId = null;
+});
+
+declineCallBtn.addEventListener('click', () => {
+  if (!pendingCallId) return;
+  socket.emit('voice:decline', { callId: pendingCallId });
+  pendingCallId = null;
+  incomingModal.style.display = 'none';
+});
+
+// ── WebRTC setup ──────────────────────────────────────────
+socket.on('voice:start', async ({ callId, initiator, peerUsername }) => {
+  currentCallId = callId;
+  callingPanel.style.display = 'none';
+
+  // Show active call panel
+  callPeerName.textContent   = peerUsername;
+  callPeerAvatar.textContent = peerUsername[0].toUpperCase();
+  activeCallPanel.style.display = 'block';
+  startCallTimer();
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch (err) {
+    alert('⚠ Microphone access denied. Please allow mic access and try again.');
+    hangUp();
+    return;
+  }
+
+  peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+  // Add local audio tracks
+  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+  // Remote audio
+  peerConnection.ontrack = (event) => {
+    remoteAudio.srcObject = event.streams[0];
+    document.getElementById('voiceBars').classList.add('bars-active');
+  };
+
+  // ICE candidates
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('voice:ice-candidate', { callId, candidate: event.candidate });
+    }
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    if (['disconnected','failed','closed'].includes(peerConnection.connectionState)) {
+      hangUp();
+    }
+  };
+
+  if (initiator) {
+    // Create offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('voice:offer', { callId, offer });
+  }
+});
+
+// Receive offer
+socket.on('voice:offer', async ({ callId, offer }) => {
+  if (!peerConnection) return;
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+  socket.emit('voice:answer', { callId, answer });
+});
+
+// Receive answer
+socket.on('voice:answer', async ({ answer }) => {
+  if (!peerConnection) return;
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+});
+
+// ICE candidate
+socket.on('voice:ice-candidate', async ({ candidate }) => {
+  if (!peerConnection || !candidate) return;
+  try { await peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
+});
+
+// Remote declined
+socket.on('voice:declined', ({ by }) => {
+  alert(`${by} declined your call.`);
+  resetCallUI();
+});
+
+// Remote hung up
+socket.on('voice:hangup', () => {
+  if (activeCallPanel.style.display !== 'none') {
+    alert('The other person ended the call.');
+  }
+  resetCallUI();
+});
+
+// ── Controls ──────────────────────────────────────────────
+hangupBtn.addEventListener('click', hangUp);
+
+muteBtn.addEventListener('click', () => {
+  if (!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  muteIcon.textContent  = isMuted ? '🔇' : '🎙';
+  muteLabel.textContent = isMuted ? 'Unmute' : 'Mute';
+  muteBtn.classList.toggle('muted', isMuted);
+});
+
+function hangUp() {
+  if (currentCallId) socket.emit('voice:hangup', { callId: currentCallId });
+  resetCallUI();
+}
+
+function resetCallUI() {
+  // Stop media
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  if (peerConnection) { peerConnection.close(); peerConnection = null; }
+  remoteAudio.srcObject = null;
+
+  // Reset state
+  currentCallId = null;
+  isMuted = false;
+  stopCallTimer();
+
+  // Hide panels
+  activeCallPanel.style.display = 'none';
+  callingPanel.style.display    = 'none';
+  incomingModal.style.display   = 'none';
+
+  // Reset mute btn
+  muteIcon.textContent  = '🎙';
+  muteLabel.textContent = 'Mute';
+  muteBtn.classList.remove('muted');
+  document.getElementById('voiceBars').classList.remove('bars-active');
+}
+
+// ── Call timer ────────────────────────────────────────────
+function startCallTimer() {
+  callSeconds = 0;
+  callTimerInterval = setInterval(() => {
+    callSeconds++;
+    const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+    const s = String(callSeconds % 60).padStart(2, '0');
+    callTimer.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopCallTimer() {
+  clearInterval(callTimerInterval);
+  callTimer.textContent = '00:00';
+  callSeconds = 0;
+}
+
+// ── Utils ─────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+  // Notification badge is handled globally in head.ejs
+</script>
+</body></html>

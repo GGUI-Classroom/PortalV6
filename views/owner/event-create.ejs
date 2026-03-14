@@ -1,0 +1,51 @@
+<%- include('../partials/head') %>
+<div class="app-layout">
+  <%- include('../partials/sidebar-owner') %>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">📅 Schedule an Event</h1>
+      <p class="page-desc">Create an event that all employees will see live.</p>
+    </div>
+    <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <div class="card">
+      <form action="/events/create" method="POST" class="form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="title">Event Title <span class="required">*</span></label>
+            <input type="text" id="title" name="title" class="form-input" placeholder="e.g. Team Standup" required maxlength="150" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="type">Event Type <span class="required">*</span></label>
+            <select id="type" name="type" class="form-select" required>
+              <option value="" disabled selected>Select type</option>
+              <option value="Meeting">Meeting</option>
+              <option value="Deadline">Deadline</option>
+              <option value="Announcement">Announcement</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="startsAt">Starts At <span class="required">*</span></label>
+            <input type="datetime-local" id="startsAt" name="startsAt" class="form-input" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="endsAt">Ends At <span class="optional">(optional)</span></label>
+            <input type="datetime-local" id="endsAt" name="endsAt" class="form-input" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="description">Description <span class="optional">(optional)</span></label>
+          <textarea id="description" name="description" class="form-textarea" placeholder="Details about this event..." maxlength="1000" rows="4"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">📅 Schedule Event</button>
+          <a href="/events" class="btn btn-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+</body></html>

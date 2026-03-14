@@ -1,0 +1,70 @@
+<%- include('../partials/head') %>
+<div class="app-layout">
+  <%- include('../partials/sidebar-owner') %>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">＜/＞ Review Code Snippets</h1>
+      <p class="page-desc"><%= items.length %> pending review. <a href="/owner/snippets/reviewed" class="link-secondary">View reviewed →</a></p>
+    </div>
+
+    <div class="filter-bar card">
+      <form method="GET" action="/owner/snippets" class="filter-form">
+        <input type="text" name="q" class="form-input filter-input" placeholder="Search by title, language, submitter..." value="<%= q %>" />
+        <button type="submit" class="btn btn-secondary">Search</button>
+        <a href="/owner/snippets" class="btn btn-ghost">Clear</a>
+      </form>
+    </div>
+
+    <% if (items.length === 0) { %>
+      <div class="empty-state card">
+        <div class="empty-icon">✅</div>
+        <p>No snippets pending review.</p>
+      </div>
+    <% } else { %>
+      <div class="cards-list">
+        <% items.forEach(function(item) { %>
+          <div class="item-card card">
+            <div class="item-card-header">
+              <div>
+                <h3 class="item-title"><%- item.title %></h3>
+                <div class="item-meta">
+                  <span class="badge badge-lang"><%= item.language %></span>
+                  <span class="badge badge-pending">PENDING</span>
+                  <span class="meta-text">by <strong><%= item.submitter %></strong></span>
+                  <span class="meta-text"><%= new Date(item.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %></span>
+                </div>
+              </div>
+              <div class="review-actions">
+                <form method="POST" action="/owner/snippets/<%= item.id %>/review" style="display:inline">
+                  <input type="hidden" name="action" value="accepted" />
+                  <button type="submit" class="btn btn-accept">✅ Accept</button>
+                </form>
+                <form method="POST" action="/owner/snippets/<%= item.id %>/review" style="display:inline">
+                  <input type="hidden" name="action" value="declined" />
+                  <button type="submit" class="btn btn-decline">❌ Decline</button>
+                </form>
+              </div>
+            </div>
+            <div class="item-body">
+              <p class="item-text"><%- item.description %></p>
+              <div class="code-block-wrapper">
+                <div class="code-block-header">
+                  <span class="code-lang-label"><%= item.language %></span>
+                  <button class="btn-copy" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre class="code-block"><code><%= item.code %></code></pre>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </main>
+</div>
+<script>
+function copyCode(btn) {
+  const code = btn.closest('.code-block-wrapper').querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); });
+}
+</script>
+</body></html>

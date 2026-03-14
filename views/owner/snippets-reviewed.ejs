@@ -1,0 +1,50 @@
+<%- include('../partials/head') %>
+<div class="app-layout">
+  <%- include('../partials/sidebar-owner') %>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">＜/＞ Reviewed Snippets</h1>
+      <p class="page-desc"><%= items.length %> reviewed. <a href="/owner/snippets" class="link-secondary">← Back to pending</a></p>
+    </div>
+    <% if (items.length === 0) { %>
+      <div class="empty-state card"><div class="empty-icon">📋</div><p>No reviewed snippets yet.</p></div>
+    <% } else { %>
+      <div class="cards-list">
+        <% items.forEach(function(item) { %>
+          <div class="item-card card">
+            <div class="item-card-header">
+              <div>
+                <h3 class="item-title"><%- item.title %></h3>
+                <div class="item-meta">
+                  <span class="badge badge-lang"><%= item.language %></span>
+                  <span class="badge <%= item.status === 'accepted' ? 'badge-accepted' : 'badge-declined' %>">
+                    <%= item.status === 'accepted' ? '✅ ACCEPTED' : '❌ DECLINED' %>
+                  </span>
+                  <span class="meta-text">by <strong><%= item.submitter %></strong></span>
+                  <span class="meta-text">reviewed <%= new Date(item.reviewedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %></span>
+                </div>
+              </div>
+            </div>
+            <div class="item-body">
+              <p class="item-text"><%- item.description %></p>
+              <div class="code-block-wrapper">
+                <div class="code-block-header">
+                  <span class="code-lang-label"><%= item.language %></span>
+                  <button class="btn-copy" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre class="code-block"><code><%= item.code %></code></pre>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </main>
+</div>
+<script>
+function copyCode(btn) {
+  const code = btn.closest('.code-block-wrapper').querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); });
+}
+</script>
+</body></html>

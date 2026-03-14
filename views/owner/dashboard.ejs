@@ -1,0 +1,52 @@
+<%- include('../partials/head') %>
+<div class="app-layout">
+  <%- include('../partials/sidebar-owner') %>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">📊 Owner Dashboard</h1>
+      <p class="page-desc">Overview of all submissions and team activity.</p>
+    </div>
+
+    <div class="stats-grid">
+      <a href="/owner/websites" class="stat-card">
+        <div class="stat-icon">🌐</div>
+        <div class="stat-value"><%= counts.websites %></div>
+        <div class="stat-label">Website Suggestions</div>
+      </a>
+      <a href="/owner/features" class="stat-card">
+        <div class="stat-icon">💡</div>
+        <div class="stat-value"><%= counts.features %></div>
+        <div class="stat-label">Feature Suggestions</div>
+      </a>
+      <a href="/owner/snippets" class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-value"><%= counts.snippetsPending %></div>
+        <div class="stat-label">Snippets Pending Review</div>
+      </a>
+      <a href="/owner/snippets/reviewed" class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-value"><%= counts.snippetsReviewed %></div>
+        <div class="stat-label">Snippets Reviewed</div>
+      </a>
+      <a href="/events" class="stat-card stat-card-total">
+        <div class="stat-icon">📅</div>
+        <div class="stat-value"><%= counts.events %></div>
+        <div class="stat-label">Upcoming Events</div>
+      </a>
+    </div>
+
+    <div class="card" style="margin-top:2rem;">
+      <h2 class="card-title">Quick Access</h2>
+      <div class="quick-links">
+        <a href="/owner/websites"       class="quick-link"><span>🌐</span> Website Suggestions</a>
+        <a href="/owner/features"       class="quick-link"><span>💡</span> Feature Suggestions</a>
+        <a href="/owner/snippets"       class="quick-link"><span>⏳</span> Review Snippets</a>
+        <a href="/owner/combined"       class="quick-link"><span>🔀</span> Combined View</a>
+        <a href="/chat"                 class="quick-link"><span>💬</span> Live Chat</a>
+        <a href="/events"               class="quick-link"><span>📅</span> View Events</a>
+        <a href="/events/create"        class="quick-link"><span>➕</span> Schedule Event</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

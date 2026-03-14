@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/portal.css" />
+</head>
+<body>
+
+<% if (user) { %>
+<!-- ── Global incoming call overlay (visible on every page) ── -->
+<div id="globalIncomingModal" class="voice-modal" style="display:none">
+  <div class="voice-modal-box">
+    <div class="voice-modal-icon">📞</div>
+    <h3 class="voice-modal-title">Incoming Call</h3>
+    <p class="voice-modal-from" id="globalIncomingFrom">Someone is calling...</p>
+    <div class="voice-modal-actions">
+      <button class="btn-accept-call" id="globalAcceptBtn">✅ Accept</button>
+      <button class="btn-decline-call" id="globalDeclineBtn">❌ Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Global socket (presence + notifications + incoming calls) ── -->
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function () {
+  const _globalSocket = io({ autoConnect: true });
+  window._portalSocket = _globalSocket;
+
+  const ME = '<%= user.username %>';
+
+  // ── Notification badge (employees only) ──────────────────
+  <% if (user.role === 'employee') { %>
+  let _notifCount = 0;
+  _globalSocket.on('notification:new', function (notif) {
+    if (notif.username === ME) {
+      _notifCount++;
+      var badge = document.getElementById('sidebarNotifBadge');
+      if (badge) { badge.textContent = _notifCount; badge.style.display = 'inline-flex'; }
+    }
+  });
+  <% } %>
+
+  // ── Global incoming call overlay ─────────────────────────
+  var _pendingCallId   = null;
+  var _incomingModal   = document.getElementById('globalIncomingModal');
+  var _incomingFrom    = document.getElementById('globalIncomingFrom');
+  var _acceptBtn       = document.getElementById('globalAcceptBtn');
+  var _declineBtn      = document.getElementById('globalDeclineBtn');
+
+  // ── Phone ringtone via Web Audio API (no external files) ──
+  // Pattern: RING-RING ... pause ... RING-RING ... pause (classic double-ring)
+  var _audioCtx    = null;
+  var _ringTimeout = null;
+  var _ringing     = false;
+
+  function _getCtx() {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    // Resume if suspended (browser autoplay policy)
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    return _audioCtx;
+  }
+
+  // Play a single trill: two quick tones (480 Hz + 440 Hz mixed = classic phone)
+  function _playTrill(startTime, duration) {
+    try {
+      var ctx  = _getCtx();
+      var gain = ctx.createGain();
+      gain.connect(ctx.destination);
+
+      // Tone A: 480 Hz
+      var oscA = ctx.createOscillator();
+      oscA.type = 'sine';
+      oscA.frequency.value = 480;
+      oscA.connect(gain);
+
+      // Tone B: 440 Hz (mixed = classic DTMF-style ring)
+      var oscB = ctx.createOscillator();
+      oscB.type = 'sine';
+      oscB.frequency.value = 440;
+      oscB.connect(gain);
+
+      // Envelope: fade in fast, hold, fade out
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.35, startTime + 0.02);
+      gain.gain.setValueAtTime(0.35, startTime + duration - 0.04);
+      gain.gain.linearRampToValueAtTime(0, startTime + duration);
+
+      oscA.start(startTime); oscA.stop(startTime + duration);
+      oscB.start(startTime); oscB.stop(startTime + duration);
+    } catch(e) {}
+  }
+
+  // Schedule one full "RING-RING" pattern (two trills + pause)
+  // Total cycle: 0.4s trill, 0.2s gap, 0.4s trill, 2.0s silence = 3.0s
+  function _scheduleRingCycle() {
+    if (!_ringing) return;
+    try {
+      var ctx   = _getCtx();
+      var now   = ctx.currentTime;
+      _playTrill(now,        0.4);   // first ring
+      _playTrill(now + 0.6,  0.4);   // second ring (short gap between)
+      // Schedule the next cycle after 3 seconds
+      _ringTimeout = setTimeout(_scheduleRingCycle, 3000);
+    } catch(e) {}
+  }
+
+  function _startRing() {
+    _ringing = true;
+    _scheduleRingCycle();
+  }
+
+  function _stopRing() {
+    _ringing = false;
+    clearTimeout(_ringTimeout);
+    _ringTimeout = null;
+  }
+
+  _globalSocket.on('voice:incoming-call', function (data) {
+    // If we're already on the voice page, let that page handle it
+    if (window._voicePageActive) return;
+
+    _pendingCallId = data.callId;
+    _incomingFrom.textContent = data.from + (data.fromRole === 'owner' ? ' 👑' : '');
+    _incomingModal.style.display = 'flex';
+    _startRing();
+  });
+
+  _acceptBtn.addEventListener('click', function () {
+    if (!_pendingCallId) return;
+    _stopRing();
+    _incomingModal.style.display = 'none';
+    _globalSocket.emit('voice:accept', { callId: _pendingCallId });
+    // Redirect to voice page to handle the actual WebRTC connection
+    window.location.href = '/voice?callId=' + _pendingCallId + '&autoAccept=1';
+  });
+
+  _declineBtn.addEventListener('click', function () {
+    if (!_pendingCallId) return;
+    _stopRing();
+    _globalSocket.emit('voice:decline', { callId: _pendingCallId });
+    _pendingCallId = null;
+    _incomingModal.style.display = 'none';
+  });
+
+  // If the caller cancels before we answer
+  _globalSocket.on('voice:hangup', function () {
+    if (_incomingModal.style.display !== 'none') {
+      _stopRing();
+      _incomingModal.style.display = 'none';
+      _pendingCallId = null;
+    }
+  });
+
+})();
+</script>
+<% } %>

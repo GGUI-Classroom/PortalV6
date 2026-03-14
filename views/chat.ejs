@@ -1,0 +1,132 @@
+<%- include('partials/head') %>
+<div class="app-layout">
+  <% if (user.role === 'owner') { %>
+    <%- include('partials/sidebar-owner') %>
+  <% } else { %>
+    <%- include('partials/sidebar-employee') %>
+  <% } %>
+
+  <main class="main-content chat-main">
+    <!-- Presence Panel -->
+    <div class="presence-panel card" id="presence">
+      <div class="presence-header">
+        <h2 class="presence-title">🟢 Who's Online</h2>
+        <span class="presence-count" id="presenceCount">0 online</span>
+      </div>
+      <div class="presence-list" id="presenceList">
+        <div class="presence-loading">Connecting...</div>
+      </div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel card">
+      <div class="chat-header">
+        <h2 class="chat-title">💬 Team Chat</h2>
+        <span class="chat-live-badge">LIVE</span>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-connecting">Connecting to chat...</div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" class="form-input chat-input" placeholder="Type a message and press Enter..." maxlength="1000" autocomplete="off" />
+        <button class="btn btn-primary chat-send-btn" id="chatSendBtn">Send</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const ME      = '<%= user.username %>';
+  const MY_ROLE = '<%= user.role %>';
+  // Reuse the global socket created in head.ejs — avoids double presence registration
+  const socket  = window._portalSocket;
+
+  const chatMessages  = document.getElementById('chatMessages');
+  const chatInput     = document.getElementById('chatInput');
+  const chatSendBtn   = document.getElementById('chatSendBtn');
+  const presenceList  = document.getElementById('presenceList');
+  const presenceCount = document.getElementById('presenceCount');
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+  }
+
+  function formatTime(iso) {
+    return new Date(iso).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function formatTimeAgo(iso) {
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    return Math.floor(diff/3600) + 'h ago';
+  }
+
+  // ── Chat ─────────────────────────────────────────────────
+  function renderMessage(msg) {
+    const isMine   = msg.username === ME;
+    const div      = document.createElement('div');
+    div.className  = 'chat-msg' + (isMine ? ' chat-msg-mine' : '');
+    div.dataset.id = msg.id;
+    const roleClass = msg.role === 'owner' ? 'role-owner' : 'role-employee';
+    const roleBadge = msg.role === 'owner' ? '<span class="msg-role-badge owner-badge">OWNER</span>' : '';
+    div.innerHTML = `
+      <div class="msg-meta">
+        <span class="msg-username ${roleClass}">${escapeHtml(msg.username)}</span>
+        ${roleBadge}
+        <span class="msg-time">${formatTime(msg.createdAt)}</span>
+      </div>
+      <div class="msg-bubble">${escapeHtml(msg.text)}</div>`;
+    chatMessages.appendChild(div);
+  }
+
+  function scrollToBottom() { chatMessages.scrollTop = chatMessages.scrollHeight; }
+
+  socket.on('chat:history', (history) => {
+    chatMessages.innerHTML = '';
+    if (!history.length) { chatMessages.innerHTML = '<div class="chat-empty">No messages yet. Say hello! 👋</div>'; return; }
+    history.forEach(renderMessage);
+    scrollToBottom();
+  });
+
+  socket.on('chat:message', (msg) => {
+    const empty = chatMessages.querySelector('.chat-empty, .chat-connecting');
+    if (empty) empty.remove();
+    renderMessage(msg);
+    scrollToBottom();
+  });
+
+  function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    socket.emit('chat:message', { text });
+    chatInput.value = '';
+    chatInput.focus();
+  }
+
+  chatSendBtn.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+
+  socket.on('connect', () => { const c = chatMessages.querySelector('.chat-connecting'); if (c) c.remove(); });
+  socket.on('disconnect', () => { const d = document.createElement('div'); d.className='chat-system-msg'; d.textContent='⚠ Disconnected. Reconnecting...'; chatMessages.appendChild(d); scrollToBottom(); });
+
+  // ── Presence ─────────────────────────────────────────────
+  socket.on('presence:update', (users) => {
+    presenceCount.textContent = users.length + ' online';
+    if (!users.length) { presenceList.innerHTML = '<div class="presence-empty">No one online</div>'; return; }
+    users.sort((a,b) => { if (a.role==='owner' && b.role!=='owner') return -1; if (b.role==='owner' && a.role!=='owner') return 1; return a.username.localeCompare(b.username); });
+    presenceList.innerHTML = '';
+    users.forEach(u => {
+      const div = document.createElement('div');
+      div.className = 'presence-user';
+      const isMe = u.username === ME;
+      const roleClass = u.role === 'owner' ? 'role-owner' : 'role-employee';
+      const badge = u.role === 'owner' ? '<span class="presence-role-badge owner-badge">OWNER</span>' : '';
+      div.innerHTML = `<span class="presence-dot"></span><span class="presence-name ${roleClass}">${escapeHtml(u.username)}${isMe ? ' <span class="you-label">(you)</span>' : ''}</span>${badge}<span class="presence-time">${formatTimeAgo(u.connectedAt)}</span>`;
+      presenceList.appendChild(div);
+    });
+  });
+
+  // Notification badge is handled globally in head.ejs
+</script>
+</body></html>
